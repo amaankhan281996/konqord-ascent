@@ -301,6 +301,14 @@ const FACTS = {
   ],
 };
 
+// Pet companion: evolves at the same levels as in the Pokémon games, following Emzi's level.
+const PET_STAGES = [
+  { from: 1,  name: "Torchic",   sprite: "sprites/pet-torchic.gif" },
+  { from: 16, name: "Combusken", sprite: "sprites/pet-combusken.gif" },
+  { from: 36, name: "Blaziken",  sprite: "sprites/pet-blaziken.gif" },
+];
+const PET_TREATS = ["Oran berry", "Pecha berry", "Poffin", "Sitrus berry", "Poké puff"];
+
 // Calo delivers three meals on weekdays; the Calo quest clears once all three are logged.
 const CALO_SLOTS = ["Breakfast", "Snack", "Lunch"];
 

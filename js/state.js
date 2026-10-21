@@ -60,6 +60,7 @@ function migrate(s) {
   s.goals.social ??= DEFAULT_GOALS.social; s.goals.beeyo ??= DEFAULT_GOALS.beeyo; s.anime ??= [];
   // Rebuild past daily EXP from the log the first time.
   if (!s.xpDays) { s.xpDays = {}; s.log.forEach(l => { const m = /\+(\d+) EXP/.exec(l.m); if (m) s.xpDays[l.t] = (s.xpDays[l.t] || 0) + +m[1]; }); }
+  s.pet ??= { mood: 70, at: Date.now(), fedAt: 0, pettedAt: 0, stage: 0 };
   s.beeyo ??= { mins: 0, seen: [] }; s.meals ??= {}; s.workouts ??= {}; s.prs ??= {};
   // Apply your answers: Duolingo streak, Switch 2 any game, writing in minutes, swim in metres,
   // gym log, Calo meal log, and Beeyo time.
@@ -505,4 +506,27 @@ function factFor(q) {
   const i = unread[Math.floor(Math.random() * unread.length)];
   q.fact = { d: S.day, i }; seen.push(i); save();
   return list[i];
+}
+
+// ---------- Pet ----------
+
+// Mood drifts down about 2 points an hour; feeding and petting lift it.
+const petStageIdx = () => PET_STAGES.reduce((i, st, k) => S.level >= st.from ? k : i, 0);
+function petMood() { const p = S.pet; return Math.max(0, Math.round(p.mood - (Date.now() - p.at) / 36e5 * 2)); }
+function setMood(v) { S.pet.mood = Math.max(0, Math.min(100, v)); S.pet.at = Date.now(); }
+const FEED_GAP = 3 * 36e5, PET_GAP = 10 * 6e4;
+function feedPet() {
+  if (Date.now() - S.pet.fedAt < FEED_GAP) return null;
+  const treat = PET_TREATS[Math.floor(Math.random() * PET_TREATS.length)];
+  setMood(petMood() + 30); S.pet.fedAt = Date.now(); save(); return treat;
+}
+function patPet() {
+  if (Date.now() - S.pet.pettedAt < PET_GAP) return false;
+  setMood(petMood() + 10); S.pet.pettedAt = Date.now(); save(); return true;
+}
+// Returns the new stage when the pet just evolved (checked after each render).
+function checkEvolution() {
+  const k = petStageIdx();
+  if (k > S.pet.stage) { S.pet.stage = k; log(`${PET_STAGES[k - 1].name} evolved into ${PET_STAGES[k].name}!`); save(); return PET_STAGES[k]; }
+  return null;
 }

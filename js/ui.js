@@ -9,7 +9,7 @@ const UI = (() => {
   let tab = "quests", filter = "all", toastT;
   try { tab = localStorage.getItem("konqord-tab") || "quests"; } catch (e) {}
 
-  function toast(m) { const el = $("toast"); el.textContent = m; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2600); }
+  function toast(m) { const el = $("toast"); el.textContent = m; el.classList.remove("show"); void el.offsetWidth; el.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("show"), 2600); }
   function modal(html) { const m = $("modal"); if (html == null) { m.hidden = true; m.innerHTML = ""; return; } m.innerHTML = `<div class="sheet">${html}</div>`; m.hidden = false; }
 
   function hud() {
@@ -33,15 +33,15 @@ const UI = (() => {
     const list = S.quests.filter(q => (filter === "all" || q.cat === filter) && activeToday(q)).sort((a, b) => a.done - b.done || !!a.perWeek - !!b.perWeek);
     const offToday = S.quests.filter(q => !activeToday(q)).map(q => q.name);
     const buffs = todayBuffs();
-    return `
+    return petCard() + `
     <section class="win">
-      <h2>Daily Quest <small>${dd}/${d.length} · bonus ×${streakMult().toFixed(2)}</small></h2>
+      <h2>Daily quest <small>${dd}/${d.length} · bonus ×${streakMult().toFixed(2)}</small></h2>
       <div class="daily-head">${head}</div>
       <div class="cats">${[["all", "All"], ...Object.entries(CATS).map(([k, c]) => [k, c.name])].map(([k, n]) => `<button data-filter="${k}" aria-pressed="${filter === k}">${n}</button>`).join("")}</div>
       <ul class="qlist">${list.map(q => {
         const c = CATS[q.cat], r = questReward(q);
         const today = q.done && q.unit ? (S.amounts[q.id] || []).filter(e => e.d === S.day).pop() : null;
-        return `<li class="q ${q.done ? "done" : ""}" style="--c:${c.c}">
+        return `<li class="q ${q.done ? "done" : ""}" data-key="${q.id}" style="--c:${c.c}">
           <button class="check" data-quest="${q.id}" aria-label="${q.done ? "Undo" : "Complete"} ${esc(q.name)}">${q.done ? "✓" : ""}</button>
           <div class="qt"><div class="qn">${esc(q.name)}${q.kind === "calo" ? ` <span class="tgt">${caloLogged().length}/3 meals</span>` : ""}${q.unit ? ` <span class="tgt">${today ? `${today.a}/` : ""}${q.target} ${q.unit}</span>` : ""}</div><div class="qs">${q.perWeek ? `<span class="wk ${weekCount(q) >= q.perWeek ? "met" : ""}">${weekCount(q)}/${q.perWeek} this week</span> ` : ""}${c.name} · +${c.stat} · Rank ${q.diff}${q.daily ? "" : " · one-time"}${q.unit && questTotal(q) ? ` · ${questTotal(q).toLocaleString()} ${q.unit} total` : ""}</div></div>
           <div class="rew">${q.kind === "beeyo" ? "up to " : ""}+${r.xp} EXP<br><span class="g">+${r.g}g</span> <span class="e">⚡${r.en}</span></div>
@@ -68,6 +68,38 @@ const UI = (() => {
       <div class="buffs">${Object.entries(CAT_BUFFS).map(([c, b]) => `<span class="buff ${buffs.includes(c) ? "on" : ""}" style="--c:${CATS[c].c}"><b>${CATS[c].name}</b>${b.label}</span>`).join("")}</div>
       <p class="muted small">Clear any quest in a category to switch its buff on for today's battles.</p>
     </section>`;
+  }
+
+  // ---------- Pet ----------
+  function petCard() {
+    const st = PET_STAGES[petStageIdx()], next = PET_STAGES[petStageIdx() + 1], mood = petMood();
+    const fedIn = S.pet.fedAt + FEED_GAP - Date.now();
+    const feel = mood >= 80 ? "Overjoyed" : mood >= 55 ? "Happy" : mood >= 30 ? "Peckish" : "Lonely";
+    return `<section class="pet" aria-label="Pet companion">
+      <button class="pet-pic ${mood < 30 ? "sad" : ""}" data-act="pat" aria-label="Pet ${st.name}"><img src="${st.sprite}" alt="${st.name}"><span class="pet-shadow"></span></button>
+      <div class="pet-info">
+        <div class="pet-name"><b>${st.name}</b><span>Lv ${S.level}</span></div>
+        <div class="pet-mood"><span>${feel}</span>${bar(mood, 100, "mood")}</div>
+        <div class="pet-acts">
+          <button class="btn ghost" data-act="feed" ${fedIn > 0 ? "disabled" : ""}>${fedIn > 0 ? `Full · ${Math.ceil(fedIn / 36e5)}h` : "Feed"}</button>
+          <span class="muted small">${next ? `Evolves at Lv ${next.from}` : "Fully evolved"}</span>
+        </div>
+      </div>
+    </section>`;
+  }
+  function petHearts() {
+    const pic = document.querySelector(".pet-pic"); if (!pic || calm) return;
+    const r = pic.getBoundingClientRect();
+    for (let i = 0; i < 5; i++) {
+      const h = document.createElement("span"); h.className = "heart-float"; h.textContent = "♥";
+      h.style.cssText = `left:${r.left + r.width / 2 + (Math.random() - .5) * 40}px;top:${r.top + 20}px;animation-delay:${i * 70}ms`;
+      document.body.appendChild(h); setTimeout(() => h.remove(), 1300);
+    }
+  }
+  function showEvolution(st) {
+    modal(`<div class="loot evo" style="--rc:#ff8a3d"><div class="burst"></div><h3>What? It's evolving!</h3>
+      <img class="evo-pic" src="${st.sprite}" alt="${st.name}"><p class="fact-text" style="position:relative">Your companion evolved into <b>${st.name}</b>!</p>
+      <button class="btn" data-act="close">Amazing</button></div>`);
   }
 
   // ---------- Life ----------
@@ -173,7 +205,7 @@ const UI = (() => {
     const floors = [...Array(10)].map((_, i) => { const n = area.floors[0] + i; return `<i class="${n < t.floor ? "cleared" : n === t.floor ? "now" : ""} ${NAMED_BOSSES[n] ? "named" : ""}" title="Floor ${n}${NAMED_BOSSES[n] ? ": " + NAMED_BOSSES[n].name : ""}">${n}</i>`; }).join("");
     return `
     <section class="win scene" style="--sky:${area.sky};--ground:${area.ground};--acc:${area.accent}">
-      <h2>${done ? "The summit" : `Floor ${t.floor}`} <small>${area.name}</small></h2>
+      <h2>${done ? "The summit" : `Floor ${t.floor}`} <small>${done ? "All 100 cleared" : t.stage === 3 ? "Boss fight" : `Mini-boss ${t.stage + 1} of 3`}</small></h2>
       ${done ? `<p class="lead">Emzi has conquered all 100 floors. The Haloed Devourer is no more.</p>` : `
       <div class="stage-row">${stages}</div>
       <div class="arena">
@@ -190,9 +222,11 @@ const UI = (() => {
       ${todayBuffs().length ? `<div class="buffs small-buffs">${todayBuffs().map(c => `<span class="buff on" style="--c:${CATS[c].c}">${CAT_BUFFS[c].label}</span>`).join("")}</div>` : ""}`}
     </section>
     <section class="win">
-      <h2>${area.name} <small>floors ${area.floors[0]}–${area.floors[1]}</small></h2>
+      <h2>Floors <small>${area.floors[0]}–${area.floors[1]}</small></h2>
       <div class="floors">${floors}</div>
-      <h2 style="margin-top:16px">Regions of Konqord <small>${areaOf(Math.min(S.tower.highest, 100)) + 1}/10 unlocked</small></h2>
+    </section>
+    <section class="win">
+      <h2>Regions <small>${areaOf(Math.min(S.tower.highest, 100)) + 1}/10 unlocked</small></h2>
       <div class="areas">${AREAS.map((a, i) => `<div class="area ${S.tower.highest >= a.floors[0] ? "open" : ""}" style="--acc:${THEMES[i].p};--acc2:${THEMES[i].s}"><b>${a.name}</b><span>${S.tower.highest >= a.floors[0] ? `Floors ${a.floors[0]}–${a.floors[1]}` : `Locked until floor ${a.floors[0]}`}</span></div>`).join("")}</div>
     </section>`;
   }
@@ -551,10 +585,74 @@ const UI = (() => {
     r.setProperty("--p", t.p); r.setProperty("--s", t.s); r.setProperty("--on-p", t.on); r.setProperty("--bg", t.bg);
     document.querySelector('meta[name="theme-color"]').content = t.bg;
   }
+  // Celebrate any quest that became done since the last render: pop the check, burst sparks, float the EXP.
+  let doneBefore = new Set(S.quests.filter(q => q.done).map(q => q.id)), lastTab = null;
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function celebrate(q) {
+    const btn = document.querySelector(`[data-quest="${q.id}"]`); if (!btn) return;
+    const card = btn.closest(".q"); card.classList.add("just-done"); btn.classList.add("pop");
+    if (calm) return;
+    const r = btn.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const colors = [CATS[q.cat].c, "var(--s)", "var(--gold)", "#fff"];
+    for (let i = 0; i < 14; i++) {
+      const p = document.createElement("i"); p.className = "spark";
+      const a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 40;
+      p.style.cssText = `left:${cx}px;top:${cy}px;--dx:${Math.cos(a) * d}px;--dy:${Math.sin(a) * d}px;background:${colors[i % 4]}`;
+      document.body.appendChild(p); setTimeout(() => p.remove(), 700);
+    }
+    const f = document.createElement("span"); f.className = "xp-float";
+    f.textContent = `+${questReward(q, q.lastAmt).xp} EXP`;
+    f.style.cssText = `left:${cx}px;top:${cy}px`;
+    document.body.appendChild(f); setTimeout(() => f.remove(), 1100);
+  }
+  // Update the page in place instead of rebuilding it, so bars slide, images don't flicker
+  // and moved cards (data-key) glide to their new spot.
+  function patchNode(x, y) {
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) { x.replaceWith(y); return; }
+    if (x.nodeType !== 1) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; return; }
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name) && !(at.name === "open" && x.tagName === "DETAILS")) x.removeAttribute(at.name);
+    for (const at of y.attributes) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    if (x === document.activeElement && /INPUT|TEXTAREA|SELECT/.test(x.tagName)) return;
+    if (x.tagName === "INPUT") { if (x.type === "checkbox" || x.type === "radio") x.checked = y.hasAttribute("checked"); else x.value = y.getAttribute("value") ?? ""; }
+    patchChildren(x, y);
+  }
+  function patchChildren(a, b) {
+    const old = [...a.childNodes], keyed = new Map(old.filter(n => n.dataset?.key).map(n => [n.dataset.key, n]));
+    const next = [...b.childNodes];
+    next.forEach((n, i) => {
+      let cur = n.dataset?.key && keyed.get(n.dataset.key);
+      if (cur) keyed.delete(n.dataset.key); else cur = a.childNodes[i] && !a.childNodes[i].dataset?.key ? a.childNodes[i] : null;
+      if (!cur) { a.insertBefore(n, a.childNodes[i] || null); return; }
+      if (a.childNodes[i] !== cur) a.insertBefore(cur, a.childNodes[i] || null);
+      patchNode(cur, n);
+    });
+    while (a.childNodes.length > next.length) a.lastChild.remove();
+  }
+  function morph(el, html) {
+    const before = new Map([...el.querySelectorAll("[data-key]")].map(n => [n.dataset.key, n.getBoundingClientRect().top]));
+    const t = document.createElement("div"); t.innerHTML = html; patchChildren(el, t);
+    if (calm) return;
+    el.querySelectorAll("[data-key]").forEach(n => {
+      const top = before.get(n.dataset.key); if (top == null) return;
+      const dy = top - n.getBoundingClientRect().top; if (Math.abs(dy) < 2) return;
+      n.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.25,1.1,.4,1)" });
+    });
+  }
+  function moveTabPill() {
+    const on = document.querySelector(`#tabs [data-tab="${tab}"]`), pill = $("tabPill"); if (!on || !pill) return;
+    pill.style.width = on.offsetWidth + "px"; pill.style.transform = `translateX(${on.offsetLeft}px)`;
+  }
   function render() {
     applyTheme();
     hud();
-    $("view").innerHTML = VIEWS[tab]();
+    const v = $("view");
+    if (tab !== lastTab) { v.innerHTML = VIEWS[tab](); v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); lastTab = tab; window.scrollTo({ top: 0 }); }
+    else morph(v, VIEWS[tab]());
+    moveTabPill();
+    const evo = checkEvolution(); if (evo) setTimeout(() => showEvolution(evo), 400);
+    const now = S.quests.filter(q => q.done);
+    if (tab === "quests") now.filter(q => !doneBefore.has(q.id)).forEach(celebrate);
+    doneBefore = new Set(now.map(q => q.id));
   }
 
   function showLoot(res) {
@@ -617,6 +715,8 @@ const UI = (() => {
       if (["defend", "potion", "ether", "flee"].includes(a)) return playerAct(a);
       if (a === "close-battle") { B = null; modal(null); }
       if (a === "close") modal(null);
+      if (a === "feed") { const tr = feedPet(); if (tr) { toast(`${PET_STAGES[petStageIdx()].name} loved the ${tr}!`); render(); petHearts(); document.querySelector(".pet-pic")?.classList.add("hop"); return; } }
+      if (a === "pat") { const pic = document.querySelector(".pet-pic"); pic?.classList.remove("hop"); void pic?.offsetWidth; pic?.classList.add("hop"); if (patPet()) { render(); } petHearts(); return; }
       if (a === "reset-tree") { if (resetTree()) toast("Skill points refunded."); }
       if (a === "rest") { if (takeRestDay()) toast("Rest day taken. Recover well."); }
       if (a === "export") {
