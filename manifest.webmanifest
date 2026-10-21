@@ -1,0 +1,28 @@
+{
+  "name": "Konqord Ascent",
+  "short_name": "Ascent",
+  "description": "Real-life quests power Emzi's climb up the 100-floor tower of Konqord.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1a5c",
+  "theme_color": "#0b1a5c",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}
