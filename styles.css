@@ -484,3 +484,6 @@ input, select, textarea { border-radius: 10px; }
 .watched .totals li { grid-template-columns: minmax(0,1fr) auto auto auto; }
 
 * { font-variant-numeric: lining-nums tabular-nums !important; }
+
+/* Hidden elements (like the closed popup layer) must never cover the page. */
+[hidden] { display: none !important; }
