@@ -82,7 +82,7 @@ function migrate(s) {
 
 let S;
 try { S = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-S = (!S || S.v !== 1) ? newGame() : migrate(S);
+S = migrate(!S || S.v !== 1 ? newGame() : S); // new games also get every field migrate adds
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} };
 const log = m => { S.log.unshift({ t: localDay(), m }); S.log = S.log.slice(0, 120); };
 
